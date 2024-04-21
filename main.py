@@ -61,9 +61,10 @@ class TubeBot():
             WebDriverWait(self.driver, 7).until(EC.presence_of_element_located((By.ID, 'contents')))
             contents = self.driver.find_elements(By.XPATH, '//*[@id="contents"]/ytd-video-renderer')
             print('contents count: ' + str(len(contents)))
-            # yt-core-image--loaded
             WebDriverWait(self.driver, 7).until(EC.presence_of_element_located((By.CLASS_NAME, 'yt-core-image--loaded')))
             time.sleep(1)
+            #무한 스크롤 상태에 빠질 가능성을 방지하기 위한 PAGE_DOWN 50회 제한
+            scroll_limit = 50
             for i in range(len(contents)):
                 try:
                     # Video Title
@@ -74,9 +75,12 @@ class TubeBot():
                     thumbnail = self.driver.find_element(By.XPATH, '//*[@id="contents"]/ytd-video-renderer['+str(i+1)+']/div[1]/ytd-thumbnail/a/yt-image/img')
                     src = None
                     while(src is None):
+                        if scroll_limit < 1:
+                            break
                         time.sleep(0.5)
                         src = thumbnail.get_attribute('src')
                         self.driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.PAGE_DOWN)
+                        scroll_limit -= 1
                     print('Video Title: '+title+'\nChannel: '+uploader)
                     try:
                         print('imgsrc: '+src)
@@ -86,6 +90,7 @@ class TubeBot():
 
                 except NoSuchElementException:
                     print("NoSuchElementException Occured")
+            print(f"Scroll Count: %d", scroll_limit)
         except NoSuchElementException:
             print("NoSuchElementException Occured")
 
@@ -147,13 +152,14 @@ class MainWindow(QMainWindow):
         self.btn_start.setText('Connect')
     
     def onlySearch(self, a0):
-        self.btn_search.setFlat(True)
-        self.btn_search.setText('Searching...')
-        QApplication.processEvents()
         if self.tube_bot:
+            self.btn_search.setFlat(True)
+            self.btn_search.setText('Searching...')
+            self.clearVideoInfo()
+            QApplication.processEvents()
             self.tube_bot.search()
-        self.btn_search.setFlat(False)
-        self.btn_search.setText('Search')
+            self.btn_search.setFlat(False)
+            self.btn_search.setText('Search')
 
     def setVideoInfo(self, title, uploader, thumbnail):
         infoLayout = QHBoxLayout()
@@ -181,6 +187,14 @@ class MainWindow(QMainWindow):
         widget.setStyleSheet('QBorder {border: 1px solid black;} ')
         widget.setLayout(infoLayout)
         self.contentsLayout.addWidget(widget)
+
+    def clearVideoInfo(self):
+        child = self.contentsLayout.takeAt(0)
+        while child is not None:
+            child.widget().deleteLater()
+            child = self.contentsLayout.takeAt(0)
+
+        
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         if self.tube_bot:
