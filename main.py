@@ -63,7 +63,7 @@ class TubeBot():
             print('contents count: ' + str(len(contents)))
             WebDriverWait(self.driver, 7).until(EC.presence_of_element_located((By.CLASS_NAME, 'yt-core-image--loaded')))
             time.sleep(1)
-            #무한 스크롤 상태에 빠질 가능성을 방지하기 위한 PAGE_DOWN 50회 제한
+            # 무한 스크롤 상태에 빠질 가능성을 방지하기 위한 PAGE_DOWN 50회 제한
             scroll_limit = 50
             for i in range(len(contents)):
                 try:
@@ -98,9 +98,6 @@ class TubeBot():
     def quit(self):
         self.driver.quit()
 
-class QBorder(QWidget):
-    def __init_subclass__(cls) -> None:
-        return super().__init_subclass__()
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -169,22 +166,24 @@ class MainWindow(QMainWindow):
         imgLabel = QLabel()
         pix = QPixmap()
 
-        #TODO: Load img From URL and Resize the Widget
+        # Load img From URL and Resize the Widget
         if thumbnail is not None:
             image = urllib.request.urlopen(thumbnail).read()
             pix.loadFromData(image)
         else:
+            # if Failed to load thumbnail, just a Youtube logo
             pix.load('thumbPlaceholder.webp')
+        
+        # resize the thumbnail
         imgLabel.setMaximumWidth(210)
-        # imgLabel.setMaximumHeight(118)
         pix = pix.scaledToWidth(210)
+
+        widget = QFrame()
+        widget.setObjectName("borderFrame")
+        widget.setStyleSheet('#borderFrame {border: 1px solid black;} ')
         imgLabel.setPixmap(pix)
         infoLayout.addWidget(imgLabel)
         infoLayout.addLayout(metaLayout)
-
-        # TODO: QBorder를 활용한 테두리 그리기 왜 안되는지 알아내기
-        widget = QBorder()
-        widget.setStyleSheet('QBorder {border: 1px solid black;} ')
         widget.setLayout(infoLayout)
         self.contentsLayout.addWidget(widget)
 
