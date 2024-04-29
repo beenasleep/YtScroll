@@ -20,8 +20,20 @@ webdriver.Chrome()을 생성하고
 https://www.youtube.com 에 접속합니다.
 ### def search()
 검색하고 검색 결과를 읽어 MainWindow에 전달합니다.
+### def goto(self, link)
+영상 링크를 받아 해당 주소를 새 탭으로 엽니다.
 ### def quit()
 selenium webdriver를 종료합니다.
+
+## VideoFrame
+유튜브 영상 정보 한 칸을 구성하기 위한 클래스입니다.
+### def __init__(self, parent, title, link, uploader, thumbnail)
+생성자 메소드. parent(MainWindow)와 해당 프레임을 구성할 영상 정보를 가져옵니다.
+### def init_ui(self)
+받아온 영상 정보로 ui를 구성합니다.
+### def mousePressEvent(self, a0: QMouseEvent | None)
+클릭 시 웹드라이버가 해당 영상 링크로 이동하도록 합니다.
+
 ## MainWindow
 ui를 담당하며, TubeBot을 멤버 변수로 가지고 필요한 동작을 요청합니다.
 ### def __init__()
@@ -42,5 +54,7 @@ TubeBot.search() 동작 중 호출될 메소드입니다.
 제목, 채널명, 썸네일을 전달받아 ui에 추가합니다.
 ### def clearVideoInfo()
 'search' 버튼을 누르면 호출되는 메소드로,검색을 진행하기 전에 이전 기록을 ui에서 삭제합니다.
+### def goto(self, link)
+**VideoFrame**에게 호출받아 **TubeBot**에게 링크를 전달합니다.
 ### def closeEvent(self, a0: QCloseEvent | None)
 창을 닫을 때 'quit' 버튼이 아닌 우상단 '**x**' 버튼으로 닫을 경우에 selenium webdriver 프로세스가 종료되지 않는 문제를 방지하기 위한 오버라이드 메소드입니다.

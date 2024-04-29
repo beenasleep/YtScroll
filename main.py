@@ -1,13 +1,14 @@
-from PyQt6.QtGui import QCloseEvent
+from PyQt6.QtGui import QCloseEvent, QMouseEvent
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QWidget
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
+from selenium.common.exceptions import *
 import urllib.request
 import time
 import sys
@@ -55,25 +56,28 @@ class TubeBot():
             print("Not Interactable Exception occured.")
         # wait for search results to be loaded
         try:
-            # 검색결과가 새 것으로 바뀌기까지 기다리는 방법을 찾지 못해 임시로 time.sleep 사용
-            time.sleep(2)
-            # WebDriverWait(self.driver, 7).until(EC.invisibility_of_element((By.ID, 'contents')))
+            try:
+                WebDriverWait(self.driver, 2).until_not(EC.presence_of_element_located((By.ID, 'contents')))
+            except TimeoutException:
+                print('Timeout on until-not-exist')
             WebDriverWait(self.driver, 7).until(EC.presence_of_element_located((By.ID, 'contents')))
-            contents = self.driver.find_elements(By.XPATH, '//*[@id="contents"]/ytd-video-renderer')
-            print('contents count: ' + str(len(contents)))
+            contents = self.driver.find_elements(By.CSS_SELECTOR, '#contents > ytd-video-renderer:nth-of-type(n) > div:nth-of-type(1)')
+            print(f'contents count: {len(contents)}')
             WebDriverWait(self.driver, 7).until(EC.presence_of_element_located((By.CLASS_NAME, 'yt-core-image--loaded')))
             time.sleep(1)
             # 무한 스크롤 상태에 빠질 가능성을 방지하기 위한 PAGE_DOWN 50회 제한
             scroll_limit = 50
-            for i in range(len(contents)):
+            for content in contents:
                 try:
                     # Video Title
-                    title = self.driver.find_element(By.XPATH, '//*[@id="contents"]/ytd-video-renderer['+str(i+1)+']/div[1]/div[1]/div[1]/div/h3/a').get_attribute('title')
+                    title = content.find_element(By.CSS_SELECTOR, 'div:nth-of-type(1) > div:nth-of-type(1) > div > h3 > a').get_attribute('title')
+                    # Video Link
+                    link = content.find_element(By.CSS_SELECTOR, 'div:nth-of-type(1) > div:nth-of-type(1) > div > h3 > a').get_attribute('href')
                     # Channel Name
-                    uploader = self.driver.find_element(By.XPATH, '//*[@id="contents"]/ytd-video-renderer['+str(i+1)+']/div[1]/div[1]/div[2]/ytd-channel-name/div/div/yt-formatted-string/a').text
+                    uploader = content.find_element(By.CSS_SELECTOR, 'div:nth-of-type(1) > div:nth-of-type(2) > ytd-channel-name > div > div > yt-formatted-string > a').text  # 여기서 조금 수정하면 채널 썸네일과 채널 링크도 사용 가능
                     # Thumbnail
-                    thumbnail = self.driver.find_element(By.XPATH, '//*[@id="contents"]/ytd-video-renderer['+str(i+1)+']/div[1]/ytd-thumbnail/a/yt-image/img')
-                    src = None
+                    thumbnail = content.find_element(By.CSS_SELECTOR, 'ytd-thumbnail > a > yt-image > img')
+                    src = thumbnail.get_attribute('src')
                     while(src is None):
                         if scroll_limit < 1:
                             break
@@ -86,7 +90,7 @@ class TubeBot():
                         print('imgsrc: '+src)
                     except TypeError:
                         print('Failed to read imgsrc')
-                    self.parent.setVideoInfo(title, uploader, src)
+                    self.parent.setVideoInfo(title, link, uploader, src)
 
                 except NoSuchElementException:
                     print("NoSuchElementException Occured")
@@ -94,10 +98,55 @@ class TubeBot():
         except NoSuchElementException:
             print("NoSuchElementException Occured")
 
+    def goto(self, link):
+        try:
+            self.driver.switch_to.window(self.driver.window_handles[0])
+        except NoSuchWindowException:
+            self.driver.quit()
+            self.driver = webdriver.Chrome()    
+        self.driver.switch_to.new_window('tab')
+        self.driver.get(link)
 
     def quit(self):
         self.driver.quit()
 
+
+class VideoFrame(QFrame):
+    def __init__(self, parent, title, link, uploader, thumbnail):
+        super().__init__()
+        self.parent = parent
+        self.title = title
+        self.link = link
+        self.uploader = uploader
+        self.thumbnail = thumbnail
+        self.init_ui()
+
+    def init_ui(self):
+        infoLayout = QHBoxLayout()
+        metaLayout = QVBoxLayout()
+        metaLayout.addWidget(QLabel(self.title))
+        metaLayout.addWidget(QLabel(self.uploader))
+        imgLabel = QLabel()
+        pix = QPixmap()
+        # Load img From URL and Resize the Widget
+        if self.thumbnail is not None:
+            image = urllib.request.urlopen(self.thumbnail).read()
+            pix.loadFromData(image)
+        else:
+            # if Failed to load thumbnail, just a Youtube logo
+            pix.load('thumbPlaceholder.webp')
+        # resize the thumbnail
+        imgLabel.setMaximumWidth(210)
+        pix = pix.scaledToWidth(210)
+        self.setObjectName("borderFrame")
+        self.setStyleSheet('#borderFrame {border: 1px solid black;} ')
+        imgLabel.setPixmap(pix)
+        infoLayout.addWidget(imgLabel)
+        infoLayout.addLayout(metaLayout)
+        self.setLayout(infoLayout)
+
+    def mousePressEvent(self, a0: QMouseEvent | None):
+        self.parent.goto(self.link)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -158,33 +207,8 @@ class MainWindow(QMainWindow):
             self.btn_search.setFlat(False)
             self.btn_search.setText('Search')
 
-    def setVideoInfo(self, title, uploader, thumbnail):
-        infoLayout = QHBoxLayout()
-        metaLayout = QVBoxLayout()
-        metaLayout.addWidget(QLabel(title))
-        metaLayout.addWidget(QLabel(uploader))
-        imgLabel = QLabel()
-        pix = QPixmap()
-
-        # Load img From URL and Resize the Widget
-        if thumbnail is not None:
-            image = urllib.request.urlopen(thumbnail).read()
-            pix.loadFromData(image)
-        else:
-            # if Failed to load thumbnail, just a Youtube logo
-            pix.load('thumbPlaceholder.webp')
-        
-        # resize the thumbnail
-        imgLabel.setMaximumWidth(210)
-        pix = pix.scaledToWidth(210)
-
-        widget = QFrame()
-        widget.setObjectName("borderFrame")
-        widget.setStyleSheet('#borderFrame {border: 1px solid black;} ')
-        imgLabel.setPixmap(pix)
-        infoLayout.addWidget(imgLabel)
-        infoLayout.addLayout(metaLayout)
-        widget.setLayout(infoLayout)
+    def setVideoInfo(self, title, link, uploader, thumbnail):
+        widget = VideoFrame(self, title, link, uploader, thumbnail)
         self.contentsLayout.addWidget(widget)
 
     def clearVideoInfo(self):
@@ -193,7 +217,8 @@ class MainWindow(QMainWindow):
             child.widget().deleteLater()
             child = self.contentsLayout.takeAt(0)
 
-        
+    def goto(self, link):
+        self.tube_bot.goto(link)
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         if self.tube_bot:
