@@ -41,8 +41,9 @@ class TubeBot():
         except ElementNotInteractableException:
             print("Not Interactable Exception occured.")
 
-    def search(self):
+    def search(self):  # TODO: NoSuchWindowException: Message: no such window: target window already closed
         try:
+            self.driver.switch_to.window(self.driver.window_handles[0])
             searchBox = self.driver.find_element(By.NAME, "search_query")
             print("Found search_query")
         except NoSuchElementException:
@@ -74,17 +75,17 @@ class TubeBot():
                     # Video Link
                     link = content.find_element(By.CSS_SELECTOR, 'div:nth-of-type(1) > div:nth-of-type(1) > div > h3 > a').get_attribute('href')
                     # Channel Name
-                    uploader = content.find_element(By.CSS_SELECTOR, 'div:nth-of-type(1) > div:nth-of-type(2) > ytd-channel-name > div > div > yt-formatted-string > a').text  # 여기서 조금 수정하면 채널 썸네일과 채널 링크도 사용 가능
+                    uploader = content.find_element(By.CSS_SELECTOR, 'div:nth-of-type(1) > div:nth-of-type(2) > ytd-channel-name > div > div > yt-formatted-string > a').text
                     # Thumbnail
                     thumbnail = content.find_element(By.CSS_SELECTOR, 'ytd-thumbnail > a > yt-image > img')
                     src = thumbnail.get_attribute('src')
                     while(src is None):
                         if scroll_limit < 1:
                             break
-                        time.sleep(0.5)
-                        src = thumbnail.get_attribute('src')
                         self.driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.PAGE_DOWN)
                         scroll_limit -= 1
+                        time.sleep(0.5)
+                        src = thumbnail.get_attribute('src')
                     print('Video Title: '+title+'\nChannel: '+uploader)
                     try:
                         print('imgsrc: '+src)
