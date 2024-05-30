@@ -44,6 +44,9 @@ class TubeBot():
     def search(self):  # TODO: NoSuchWindowException: Message: no such window: target window already closed
         try:
             self.driver.switch_to.window(self.driver.window_handles[0])
+        except WebDriverException:
+            self.getPage()
+        try:
             searchBox = self.driver.find_element(By.NAME, "search_query")
             print("Found search_query")
         except NoSuchElementException:
